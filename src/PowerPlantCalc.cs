@@ -12,7 +12,7 @@ namespace PowerPlantCalc
 {
     public enum Language { English, Chinese, Turkish }
 
-    [BepInPlugin("bug.dsp.powerplantcalc", "PowerPlantCalc", "1.0.0")]
+    [BepInPlugin("bug.dsp.powerplantcalc", "PowerPlantCalc", "1.0.1")]
     public class Plugin : BaseUnityPlugin
     {
         private static ConfigEntry<KeyboardShortcut> hotkey;

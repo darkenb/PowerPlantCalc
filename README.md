@@ -50,6 +50,10 @@ In `BepInEx/config/bug.dsp.powerplantcalc.cfg`, or in your mod manager's config 
 - **Works without GenesisBook.** The planet-focus filter then reports that GenesisBook is missing.
 - **Makes no changes to the game.** It does not patch game code or touch save data.
 
+## Source
+
+Source code and build instructions: [github.com/darkenb/PowerPlantCalc](https://github.com/darkenb/PowerPlantCalc)
+
 ## Building from source
 
 You need a current .NET SDK and the .NET Framework 4.7.2 targeting pack. The game, Unity and BepInEx assemblies are referenced from your own installation and are not part of this repository.
