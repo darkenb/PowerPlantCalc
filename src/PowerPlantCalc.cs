@@ -12,7 +12,7 @@ namespace PowerPlantCalc
 {
     public enum Language { English, Chinese, Turkish }
 
-    [BepInPlugin("bug.dsp.powerplantcalc", "PowerPlantCalc", "1.0.1")]
+    [BepInPlugin("bug.dsp.powerplantcalc", "PowerPlantCalc", "1.0.2")]
     public class Plugin : BaseUnityPlugin
     {
         private static ConfigEntry<KeyboardShortcut> hotkey;
@@ -429,11 +429,10 @@ namespace PowerPlantCalc
         private static Image Circle(Transform parent, Vector2 pos, float size, ItemProto item, Action onClick)
         {
             var go = UnityEngine.Object.Instantiate(fuelTpl, parent, false);
-            foreach (var n in new[] { "inc-circle-fg", "text-panel", "fuel-icon/cnt-text", "fuel-icon/arrow-1", "fuel-icon/arrow-2", "fuel-icon/arrow-3" })
-            {
-                var t = go.transform.Find(n);
-                if (t != null) UnityEngine.Object.Destroy(t.gameObject);
-            }
+            // Keep only what we use; anything else (the game's count/arrows, or text other mods add to this slot) would be cloned too.
+            foreach (Transform t in go.transform)
+                if (t.name != "circle-fg" && t.name != "fuel-icon" && t.name != "button") UnityEngine.Object.Destroy(t.gameObject);
+            foreach (Transform t in go.transform.Find("fuel-icon")) UnityEngine.Object.Destroy(t.gameObject);
             StripLocalizers(go);
             Place((RectTransform)go.transform, pos, new Vector2(size, size));
             var icon = go.transform.Find("fuel-icon").GetComponent<Image>();

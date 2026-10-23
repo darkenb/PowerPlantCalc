@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2
+
+- Fixed overlapping text in the calculator window when GeneratorFuelRate (or another mod that adds text to the power plant window) is installed.
+
 ## 1.0.1
 
 - Added a link to the GitHub source repository.
