@@ -1,0 +1,9 @@
+{
+    "name": "PowerPlantCalc",
+    "version_number": "1.0.0",
+    "website_url": "",
+    "description": "In-game calculator (Alt+X) for every fuel-burning power plant: enter fuel per minute or the power you want, get plants needed, fuel use and total power. GenesisBook aware. English/Chinese/Turkish.",
+    "dependencies": [
+        "xiaoye97-BepInEx-5.4.17"
+    ]
+}
