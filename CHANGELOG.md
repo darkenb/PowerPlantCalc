@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.3
+
+- The planet filters now follow you to a new planet while the window stays open.
+
 ## 1.0.2
 
 - Fixed overlapping text in the calculator window when GeneratorFuelRate (or another mod that adds text to the power plant window) is installed.

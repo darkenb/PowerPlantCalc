@@ -12,7 +12,7 @@ namespace PowerPlantCalc
 {
     public enum Language { English, Chinese, Turkish }
 
-    [BepInPlugin("bug.dsp.powerplantcalc", "PowerPlantCalc", "1.0.2")]
+    [BepInPlugin("bug.dsp.powerplantcalc", "PowerPlantCalc", "1.0.3")]
     public class Plugin : BaseUnityPlugin
     {
         private static ConfigEntry<KeyboardShortcut> hotkey;
@@ -28,6 +28,7 @@ namespace PowerPlantCalc
         {
             if (DSPGame.IsMenuDemo || !GameMain.isRunning || UIRoot.instance?.uiGame?.generatorWindow == null) return;
             if (!VFInput.inputing && hotkey.Value.IsDown()) CalcWindow.Toggle();
+            CalcWindow.FollowPlanet();
         }
     }
 
@@ -196,6 +197,12 @@ namespace PowerPlantCalc
             if (!win.activeSelf) return;
             win.transform.SetAsLastSibling();
             RebuildCards(); // the player may have moved to another planet
+        }
+
+        // The filters describe the current planet, and the window can stay open while the player travels.
+        public static void FollowPlanet()
+        {
+            if (win != null && win.activeSelf && (onlyFocus || onlyPlanet) && GameMain.localPlanet != planet) RebuildCards();
         }
 
         // Every fuel-burning plant, GenesisBook ones included; wind, solar, geothermal and ray receivers burn nothing.
