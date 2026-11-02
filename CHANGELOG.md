@@ -3,6 +3,7 @@
 ## 1.0.3
 
 - The planet filters now follow you to a new planet while the window stays open.
+- With GenesisBook, the planet filters now list only fuel cells for thermal plants on planets without oxygen, as the game does.
 
 ## 1.0.2
 

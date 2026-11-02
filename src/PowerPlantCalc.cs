@@ -101,6 +101,10 @@ namespace PowerPlantCalc
         // Fuel per minute that yields `watts`, from any Run result of the same plant/fuel/proliferator.
         public static double RateForPower(Result r, double watts) => r.MachinePower > 0 ? watts / r.MachinePower * r.PerMachine : 0;
 
+        // GenesisBook's FuelRodPatches: a thermal plant (fuel mask 1) on a planet without oxygen (7019) only accepts its fuel cells.
+        public static int[] Accepted(int[] all, int mask, int[] gases, int[] withoutOxygen) =>
+            mask == 1 && withoutOxygen != null && (gases == null || Array.IndexOf(gases, 7019) < 0) ? withoutOxygen : all;
+
         // Everything reachable from `have` by repeatedly applying recipes whose inputs are all available.
         public static HashSet<int> Closure(HashSet<int> have, IList<(int[] items, int[] results)> recipes)
         {
@@ -128,7 +132,21 @@ namespace PowerPlantCalc
         private static Func<int, int, bool> containsFocus;
         private static bool focusLooked;
 
+        private static int[] oxygenFreeFuels;
+        private static bool fuelsLooked;
+
         public static bool HasFocusSystem => Focus() != null;
+
+        public static int[] AcceptedFuels(PlanetData p, int mask)
+        {
+            if (p == null) return ItemProto.fuelNeeds[mask];
+            if (!fuelsLooked)
+            {
+                fuelsLooked = true;
+                oxygenFreeFuels = AccessTools.Field(AccessTools.TypeByName("ProjectGenesis.Patches.FuelRodPatches"), "FuelCells")?.GetValue(null) as int[];
+            }
+            return Calc.Accepted(ItemProto.fuelNeeds[mask], mask, p.gasItems, oxygenFreeFuels);
+        }
 
         private static Func<int, int, bool> Focus()
         {
@@ -208,7 +226,7 @@ namespace PowerPlantCalc
         // Every fuel-burning plant, GenesisBook ones included; wind, solar, geothermal and ray receivers burn nothing.
         private static IEnumerable<ItemProto> Generators() => LDB.items.dataArray.Where(i => i?.prefabDesc != null && i.prefabDesc.isPowerGen && i.prefabDesc.fuelMask > 0 && i.prefabDesc.useFuelPerTick > 0 && i.prefabDesc.fuelMask < ItemProto.fuelNeeds.Length && i.GridIndex > 0);
 
-        private static ItemProto[] Fuels(ItemProto g) => (ItemProto.fuelNeeds[g.prefabDesc.fuelMask] ?? new int[0])
+        private static ItemProto[] Fuels(ItemProto g) => (Planet.AcceptedFuels(onlyFocus || onlyPlanet ? planet : null, g.prefabDesc.fuelMask) ?? new int[0])
             .Where(id => producible == null || producible.Contains(id)).Select(id => LDB.items.Select(id)).Where(i => i != null && !IsLoreItem(i)).ToArray();
 
         // GenesisBook's three books and developer logs burn in any plant but are collectibles, not fuel (matched by proto key, not translated name).

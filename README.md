@@ -32,6 +32,8 @@ Both filters are off by default, so the list shows every plant and every fuel.
 - **Only this planet's focus:** shows only the plants boosted by the GenesisBook planet focus of the planet you are on (Fuel Cell +20%, Fission +20%, Artificial Star +10%) and includes that bonus in the result.
 - **Only makeable on this planet:** scans the planet's veins, ocean and atmosphere/gas resources, follows recipe chains from them and keeps only the fuels you can make without leaving the planet. The ray receiver's critical photons count as available. The filter does not check whether the buildings for those recipes are unlocked.
 
+With GenesisBook, a thermal plant on a planet without oxygen accepts only fuel cells. Both filters follow this rule.
+
 ## How the numbers are calculated
 
 The calculator runs the game's own power plant code (`PowerGeneratorComponent.EnergyCap_Fuel`) and its fuel drain formula. Proliferator bonuses and the antimatter-rod doubling are therefore included, and so are mod changes to that code, such as GenesisBook's per-fuel reactor bonus.
