@@ -12,7 +12,7 @@ namespace PowerPlantCalc
 {
     public enum Language { English, Chinese, Turkish }
 
-    [BepInPlugin("bug.dsp.powerplantcalc", "PowerPlantCalc", "1.0.3")]
+    [BepInPlugin("bug.dsp.powerplantcalc", "PowerPlantCalc", "1.2.1")]
     public class Plugin : BaseUnityPlugin
     {
         private static ConfigEntry<KeyboardShortcut> hotkey;
@@ -190,12 +190,16 @@ namespace PowerPlantCalc
 
     public static class CalcWindow
     {
-        private const float Width = 620f, CardW = 150f, CardH = 132f, CardsTop = -100f;
+        private const float Width = 620f, Margin = 20f, CardW = 145f, CardH = 132f, CardsTop = -100f, ResultsHeight = 133f;
+        // Tokens from the game's own window: panel teal, line cyan, selection orange. Glass order: rest, hover, pressed, text.
+        static readonly Color Ink = new Color32(232, 246, 252, 255), Soft = new Color32(176, 208, 220, 255), Accent = new Color32(253, 150, 94, 255), AccentInk = new Color32(28, 14, 6, 255), Scrim = new Color32(4, 22, 30, 168), Well = new Color32(0, 10, 16, 120), Line = new Color32(167, 233, 255, 40);
+        static readonly Color[] Glass = { new Color32(167, 233, 255, 56), new Color32(167, 233, 255, 92), new Color32(167, 233, 255, 32), Ink };
+        static readonly Color FieldRest = new Color32(0, 10, 16, 170), FieldFocus = new Color32(253, 150, 94, 70);
         private static GameObject win, fuelTpl, switchTpl, buttonTpl;
         private static RectTransform root, cardsRoot, fuelSection, fuelGrid, modeRow, inputRow, results;
         private static Text labelTpl, valueTpl, fuelTitle, emptyText, amountLabel, perMinText;
         private static InputField amountInput;
-        private static readonly List<Text> resultValues = new List<Text>();
+        private static readonly List<Text> resultValues = new List<Text>(), genNames = new List<Text>();
         private static readonly List<(ItemProto item, Image ring)> genRings = new List<(ItemProto, Image)>(), fuelRings = new List<(ItemProto, Image)>();
         private static readonly List<Image> incRings = new List<Image>();
         private static readonly List<UIButton> modeButtons = new List<UIButton>(), unitButtons = new List<UIButton>();
@@ -250,6 +254,7 @@ namespace PowerPlantCalc
             foreach (Transform c in win.transform) if (c.name != "panel-bg") UnityEngine.Object.Destroy(c.gameObject);
             UnityEngine.Object.Destroy(win.transform.Find("panel-bg/btn-box/menu-wnd-btn").gameObject);
             StripLocalizers(win);
+            Backdrop(win.transform.Find("panel-bg"));
             var close = win.transform.Find("panel-bg/btn-box/close-wnd-btn").GetComponent<Button>();
             close.onClick = new Button.ButtonClickedEvent();
             close.onClick.AddListener(() => win.SetActive(false));
@@ -259,36 +264,39 @@ namespace PowerPlantCalc
             root = (RectTransform)win.transform;
             root.anchoredPosition = new Vector2(0f, 330f);
 
-            Switch(new Vector2(20f, -50f), Lang.T("onlyFocus"), on => { onlyFocus = on; RebuildCards(); });
+            Switch(new Vector2(Margin, -50f), Lang.T("onlyFocus"), on => { onlyFocus = on; RebuildCards(); });
             Switch(new Vector2(320f, -50f), Lang.T("onlyPlanet"), on => { onlyPlanet = on; RebuildCards(); });
-            NewText(labelTpl, root, new Vector2(20f, -76f), new Vector2(400f, 20f), TextAnchor.MiddleLeft, Lang.T("plants"));
+            NewText(valueTpl, root, new Vector2(Margin, -76f), new Vector2(400f, 20f), TextAnchor.MiddleLeft, Lang.T("plants")).color = Ink;
             cardsRoot = NewRect("cards", root, new Vector2(0f, CardsTop), new Vector2(Width, 10f));
-            emptyText = NewText(labelTpl, root, new Vector2(20f, CardsTop), new Vector2(580f, 40f), TextAnchor.UpperLeft, "");
+            emptyText = NewText(labelTpl, root, new Vector2(Margin, CardsTop), new Vector2(Width - 2 * Margin, 40f), TextAnchor.UpperLeft, "");
             emptyText.horizontalOverflow = HorizontalWrapMode.Wrap;
 
             fuelSection = NewRect("fuel-section", root, Vector2.zero, new Vector2(Width, 10f));
-            fuelTitle = NewText(labelTpl, fuelSection, new Vector2(20f, 0f), new Vector2(580f, 20f), TextAnchor.MiddleLeft, "");
-            fuelGrid = NewRect("fuel-grid", fuelSection, new Vector2(0f, -24f), new Vector2(Width, 10f));
+            Card(fuelSection, new Vector2(Margin, 1f), new Vector2(Width - 2 * Margin, 1f), Line);
+            fuelTitle = NewText(valueTpl, fuelSection, new Vector2(Margin, -8f), new Vector2(Width - 2 * Margin, 20f), TextAnchor.MiddleLeft, "");
+            fuelTitle.color = Ink;
+            fuelGrid = NewRect("fuel-grid", fuelSection, new Vector2(0f, -32f), new Vector2(Width, 10f));
 
             // Mode row: one input field, read either as fuel per minute or as power, never both.
             modeRow = NewRect("mode-row", fuelSection, Vector2.zero, new Vector2(Width, 44f));
-            modeButtons.Add(TextButton(modeRow, new Vector2(20f, -8f), new Vector2(140f, 28f), Lang.T("modeFuel"), () => SetMode(false)));
-            modeButtons.Add(TextButton(modeRow, new Vector2(166f, -8f), new Vector2(140f, 28f), Lang.T("modePower"), () => SetMode(true)));
-            NewText(labelTpl, modeRow, new Vector2(330f, -12f), new Vector2(90f, 20f), TextAnchor.MiddleLeft, Lang.T("proliferator"));
+            modeButtons.Add(TextButton(modeRow, new Vector2(Margin, -8f), new Vector2(140f, 28f), Lang.T("modeFuel"), () => SetMode(false)));
+            modeButtons.Add(TextButton(modeRow, new Vector2(Margin + 142f, -8f), new Vector2(140f, 28f), Lang.T("modePower"), () => SetMode(true)));
+            NewText(labelTpl, modeRow, new Vector2(326f, -12f), new Vector2(96f, 20f), TextAnchor.MiddleRight, Lang.T("proliferator"));
             int[] incItems = { 0, 1141, 1142, 1143 };
             for (int i = 0; i < incItems.Length; i++)
             {
                 int index = i;
-                var ring = Circle(modeRow, new Vector2(420f + i * 46f, -3f), 38f, LDB.items.Select(incItems[i]), () => { incIndex = index; Refresh(); });
+                var ring = Circle(modeRow, new Vector2(430f + i * 44f, -3f), 38f, LDB.items.Select(incItems[i]), () => { incIndex = index; Refresh(); });
                 if (i == 0) ring.transform.parent.Find("button").GetComponent<UIButton>().tips.tipTitle = Lang.T("noProliferator");
                 incRings.Add(ring);
             }
 
             inputRow = NewRect("input-row", fuelSection, Vector2.zero, new Vector2(Width, 30f));
-            amountLabel = NewText(labelTpl, inputRow, new Vector2(20f, -4f), new Vector2(70f, 20f), TextAnchor.MiddleLeft, "");
+            amountLabel = NewText(labelTpl, inputRow, new Vector2(Margin, -4f), new Vector2(70f, 28f), TextAnchor.MiddleLeft, "");
             amountInput = UnityEngine.Object.Instantiate(UIRoot.instance.uiGame.beltWindow.transform.Find("number-input").GetComponent<InputField>(), inputRow, false);
             StripLocalizers(amountInput.gameObject);
-            Place((RectTransform)amountInput.transform, new Vector2(90f, -4f), new Vector2(80f, 22f));
+            Place((RectTransform)amountInput.transform, new Vector2(90f, -4f), new Vector2(96f, 28f));
+            StyleField(amountInput);
             amountInput.onValueChanged = new InputField.OnChangeEvent();
             amountInput.onEndEdit = new InputField.EndEditEvent();
             amountInput.contentType = InputField.ContentType.DecimalNumber;
@@ -298,20 +306,25 @@ namespace PowerPlantCalc
                 double.TryParse(s.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out amounts[powerMode ? 1 : 0]);
                 Refresh();
             });
-            perMinText = NewText(labelTpl, inputRow, new Vector2(176f, -4f), new Vector2(60f, 20f), TextAnchor.MiddleLeft, Lang.T("perMin"));
+            perMinText = NewText(labelTpl, inputRow, new Vector2(194f, -4f), new Vector2(60f, 28f), TextAnchor.MiddleLeft, Lang.T("perMin"));
             for (int i = 0; i < Calc.Units.Length; i++)
             {
                 int index = i;
-                unitButtons.Add(TextButton(inputRow, new Vector2(176f + i * 46f, -3f), new Vector2(42f, 24f), Calc.Units[i], () => { unitIndex = index; Refresh(); }));
+                unitButtons.Add(TextButton(inputRow, new Vector2(194f + i * 44f, -4f), new Vector2(42f, 28f), Calc.Units[i], () => { unitIndex = index; Refresh(); }));
             }
 
-            results = NewRect("results", fuelSection, Vector2.zero, new Vector2(Width, 130f));
+            results = NewRect("results", fuelSection, Vector2.zero, new Vector2(Width, ResultsHeight));
             string[] labels = { "usePerPlant", "powerPerPlant", "plantsNeeded", "totalFuel", "totalPower" };
+            Card(results, new Vector2(12f, 8f), new Vector2(Width - 24f, ResultsHeight + 8f), Well);
+            Card(results, new Vector2(Margin, -50f), new Vector2(Width - 2 * Margin, 1f), Line);  // per-plant figures above, totals below
             for (int i = 0; i < labels.Length; i++)
             {
-                NewText(labelTpl, results, new Vector2(20f, -i * 24f), new Vector2(330f, 20f), TextAnchor.MiddleLeft, Lang.T(labels[i]));
-                resultValues.Add(NewText(valueTpl, results, new Vector2(Width - 290f, -i * 24f), new Vector2(270f, 20f), TextAnchor.MiddleRight, ""));
+                float y = -i * 24f - (i >= 2 ? 9f : 0f);
+                NewText(labelTpl, results, new Vector2(Margin, y), new Vector2(330f, 20f), TextAnchor.MiddleLeft, Lang.T(labels[i]));
+                resultValues.Add(NewText(valueTpl, results, new Vector2(Width - Margin - 270f, y), new Vector2(270f, 20f), TextAnchor.MiddleRight, ""));
+                if (i >= 2) resultValues[i].color = Ink;
             }
+            resultValues[2].fontSize = 16;
             SetMode(false);
         }
 
@@ -320,6 +333,8 @@ namespace PowerPlantCalc
             powerMode = power;
             amountLabel.text = Lang.T(power ? "power" : "amount");
             perMinText.gameObject.SetActive(!power);
+            resultValues[3].fontSize = power ? 16 : 14;  // the figure this mode answers
+            resultValues[4].fontSize = power ? 14 : 16;
             foreach (var b in unitButtons) b.gameObject.SetActive(power);
             amountInput.text = amounts[power ? 1 : 0].ToString(CultureInfo.InvariantCulture); // fires onValueChanged, which refreshes
             Refresh();
@@ -335,6 +350,17 @@ namespace PowerPlantCalc
             var rt = (RectTransform)go.transform;
             Place(rt, pos, rt.sizeDelta);
             var sw = go.GetComponent<UISwitch>();
+            sw.barImg.material = null;  // the template's widget material boosts alpha
+            sw.offBarColor = Glass[0];
+            sw.onBarColor = Accent;
+            sw.thumbRectTrans.sizeDelta = new Vector2(12f, 12f);
+            sw.thumbImg.color = Ink;
+            foreach (var t in sw.uiButton.transitions)
+                if (t.target == sw.thumbImg)
+                {
+                    t.normalColor = t.mouseoverColor = t.pressedColor = t.disabledColor = Ink;
+                    t.mouseoverSize = t.pressedSize = 1f;
+                }
             sw.SetToggleNoEvent(false);
             sw.onToggle += onToggle;
             NewText(labelTpl, root, pos + new Vector2(46f, 2f), new Vector2(250f, 20f), TextAnchor.MiddleLeft, label);
@@ -353,7 +379,32 @@ namespace PowerPlantCalc
             var ub = go.GetComponent<UIButton>();
             ub.tips.tipTitle = "";
             ub.tips.tipText = "";
+            Style(go, Glass, 14);
             return ub;
+        }
+
+        // The belt window's number field is almost invisible (alpha 2 of 255). Its UIButton already highlights while focused.
+        private static void StyleField(InputField input)
+        {
+            var field = input.GetComponent<Image>();
+            field.material = null;
+            field.color = FieldRest;
+            var ub = input.GetComponent<UIButton>();
+            if (ub != null)
+                foreach (var t in ub.transitions)
+                {
+                    if (t.target == null) continue;
+                    bool isField = t.target == field;
+                    t.normalColor = t.disabledColor = isField ? FieldRest : Ink;
+                    t.mouseoverColor = t.pressedColor = isField ? Glass[2] : Ink;
+                    t.highlightColorOverride = isField ? FieldFocus : Ink;
+                    t.alphaOnly = false;
+                    t.mouseoverSize = t.pressedSize = t.highlightSizeMultiplier = 1f;
+                }
+            input.textComponent.material = null;  // same glow as the value template
+            input.textComponent.color = Ink;
+            input.textComponent.fontSize = 16;
+            input.selectionColor = new Color(Accent.r, Accent.g, Accent.b, 0.4f);
         }
 
         private static void RebuildCards()
@@ -362,10 +413,11 @@ namespace PowerPlantCalc
             producible = onlyPlanet && planet != null ? Planet.Producible(planet) : null;
             foreach (Transform c in cardsRoot) UnityEngine.Object.Destroy(c.gameObject);
             genRings.Clear();
+            genNames.Clear();
             bool noPlanet = (onlyFocus || onlyPlanet) && planet == null;
             var gens = noPlanet ? new ItemProto[0] : Generators().Where(Visible).ToArray();
             for (int i = 0; i < gens.Length; i++)
-                BuildCard(gens[i], new Vector2(15f + i % 4 * (CardW + 2f), -i / 4 * CardH));
+                BuildCard(gens[i], new Vector2(Margin + i % 4 * CardW, -i / 4 * CardH));
             cardsBottom = CardsTop - (gens.Length > 0 ? (gens.Length + 3) / 4 * CardH : 44f);
             emptyText.text = gens.Length > 0 ? ""
                 : noPlanet ? Lang.T("noPlanet")
@@ -383,21 +435,26 @@ namespace PowerPlantCalc
         {
             var card = NewRect("card-" + g.ID, cardsRoot, pos, new Vector2(CardW, CardH));
             genRings.Add((g, Circle(card, new Vector2((CardW - 52f) / 2f, 0f), 52f, g, () => SelectGen(g))));
-            NewText(labelTpl, card, new Vector2(0f, -54f), new Vector2(CardW, 34f), TextAnchor.UpperCenter, g.name).horizontalOverflow = HorizontalWrapMode.Wrap;
+            var name = NewText(labelTpl, card, new Vector2(0f, -54f), new Vector2(CardW, 34f), TextAnchor.UpperCenter, g.name);
+            name.horizontalOverflow = HorizontalWrapMode.Wrap;
+            genNames.Add(name);
             // Small icons of what this plant burns; the full list opens in the fuel menu.
             var fuels = Fuels(g);
             const int perRow = 7, max = 14;
             int shown = fuels.Length > max ? max - 1 : fuels.Length;
+            int slots = shown + (shown < fuels.Length ? 1 : 0);
+            Vector2 Slot(int i) => new Vector2((CardW - Math.Min(perRow, slots - i / perRow * perRow) * 20f + 2f) / 2f + i % perRow * 20f, -90f - i / perRow * 20f);  // centred under the plant icon
             for (int i = 0; i < shown; i++)
             {
                 var img = new GameObject("fuel-" + fuels[i].ID, typeof(RectTransform), typeof(Image)).GetComponent<Image>();
                 img.transform.SetParent(card, false);
                 img.sprite = fuels[i].iconSprite;
                 img.raycastTarget = false;
-                Place(img.rectTransform, new Vector2(6f + i % perRow * 20f, -90f - i / perRow * 20f), new Vector2(18f, 18f));
+                img.color = new Color(1f, 1f, 1f, 0.72f);  // a preview: the plant icon above and the fuel row below lead
+                Place(img.rectTransform, Slot(i), new Vector2(18f, 18f));
             }
             if (shown < fuels.Length)
-                NewText(labelTpl, card, new Vector2(6f + shown % perRow * 20f, -90f - shown / perRow * 20f), new Vector2(30f, 18f), TextAnchor.MiddleLeft, "+" + (fuels.Length - shown));
+                NewText(labelTpl, card, Slot(shown), new Vector2(30f, 18f), TextAnchor.MiddleLeft, "+" + (fuels.Length - shown)).fontSize = 12;
         }
 
         private static void SelectGen(ItemProto g)
@@ -410,20 +467,24 @@ namespace PowerPlantCalc
             for (int i = 0; i < fuels.Length; i++)
             {
                 var f = fuels[i];
-                fuelRings.Add((f, Circle(fuelGrid, new Vector2(15f + i % perRow * 45f, -i / perRow * 45f), 42f, f, () => { fuel = f; Refresh(); })));
+                fuelRings.Add((f, Circle(fuelGrid, new Vector2(Margin + i % perRow * 45f, -i / perRow * 45f), 40f, f, () => { fuel = f; Refresh(); })));
             }
             if (!fuels.Contains(fuel)) fuel = fuels.FirstOrDefault();
-            float y = -30f - (fuels.Length + perRow - 1) / perRow * 45f;
+            float y = -38f - (fuels.Length + perRow - 1) / perRow * 45f;
             modeRow.anchoredPosition = new Vector2(0f, y);
-            inputRow.anchoredPosition = new Vector2(0f, y - 48f);
-            results.anchoredPosition = new Vector2(0f, y - 48f - 36f);
-            root.sizeDelta = new Vector2(Width, -cardsBottom - y + 48f + 36f + 5 * 24f + 30f);
+            inputRow.anchoredPosition = new Vector2(0f, y - 46f);
+            results.anchoredPosition = new Vector2(0f, y - 94f);
+            root.sizeDelta = new Vector2(Width, -cardsBottom - y + 94f + ResultsHeight + 20f);
             Refresh();
         }
 
         private static void Refresh()
         {
-            foreach (var (item, ring) in genRings) ring.fillAmount = item == gen ? 1f : 0f;
+            for (int i = 0; i < genRings.Count; i++)
+            {
+                genRings[i].ring.fillAmount = genRings[i].item == gen ? 1f : 0f;
+                genNames[i].color = genRings[i].item == gen ? Ink : Soft;
+            }
             foreach (var (item, ring) in fuelRings) ring.fillAmount = item == fuel ? 1f : 0f;
             for (int i = 0; i < incRings.Count; i++) incRings[i].fillAmount = i == incIndex ? 1f : 0f;
             for (int i = 0; i < modeButtons.Count; i++) modeButtons[i].highlighted = (i == 1) == powerMode;
@@ -483,6 +544,61 @@ namespace PowerPlantCalc
             return ring;
         }
 
+        private static void Style(GameObject go, Color[] palette, int fontSize)
+        {
+            var label = go.GetComponentInChildren<Text>();
+            foreach (var t in go.GetComponent<UIButton>().transitions)
+            {
+                if (t.target == null) continue;
+                bool isText = t.target is Text;
+                t.normalColor = t.disabledColor = isText ? palette[3] : palette[0];
+                t.mouseoverColor = isText ? palette[3] : palette[1];
+                t.pressedColor = isText ? palette[3] : palette[2];
+                t.highlightColorOverride = isText ? AccentInk : Accent;
+                t.alphaOnly = false;
+                t.mouseoverSize = t.pressedSize = t.highlightSizeMultiplier = 1f;
+            }
+            go.GetComponent<UIButton>().highlighted = false;  // the cloned template is the receiver's selected mode
+            go.GetComponent<Button>().transition = Selectable.Transition.None;
+            var fill = go.GetComponent<Image>();
+            fill.material = null;  // the template's widget material boosts alpha, so colours would not read as written
+            fill.color = palette[0];
+            label.color = palette[3];
+            label.fontSize = fontSize;
+            label.alignment = TextAnchor.MiddleCenter;
+            var rt = label.rectTransform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = rt.sizeDelta = Vector2.zero;
+        }
+
+        // Deepens the game's glass so text holds on bright ground. The panel's own sprite keeps the cut corners; first child, so border, title and close button stay on top.
+        private static void Backdrop(Transform panel)
+        {
+            var bg = panel.GetComponent<Image>();
+            var scrim = new GameObject("scrim", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            scrim.transform.SetParent(panel, false);
+            scrim.transform.SetAsFirstSibling();
+            scrim.rectTransform.anchorMin = Vector2.zero;
+            scrim.rectTransform.anchorMax = Vector2.one;
+            scrim.rectTransform.anchoredPosition = scrim.rectTransform.sizeDelta = Vector2.zero;
+            scrim.sprite = bg.sprite;
+            scrim.type = bg.type;
+            scrim.color = Scrim;
+            scrim.raycastTarget = false;
+        }
+
+        private static Image Card(Transform parent, Vector2 pos, Vector2 size, Color color)
+        {
+            var image = new GameObject("card", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            image.transform.SetParent(parent, false);
+            Place(image.rectTransform, pos, size);
+            image.color = color;
+            image.raycastTarget = false;
+            return image;
+        }
+
         private static Text NewText(Text tpl, Transform parent, Vector2 pos, Vector2 size, TextAnchor align, string s)
         {
             var t = UnityEngine.Object.Instantiate(tpl, parent, false);
@@ -490,6 +606,8 @@ namespace PowerPlantCalc
             Place(t.rectTransform, pos, size);
             t.alignment = align;
             t.text = s;
+            t.material = null;  // the value template's material overdrives bright colours into a glow
+            t.color = Soft;
             t.raycastTarget = false;
             return t;
         }

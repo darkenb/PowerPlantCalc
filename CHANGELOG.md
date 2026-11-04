@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.1
+
+- Fixed values and headings glowing in the new look.
+
+## 1.2.0
+
+- New look built from the game's own window colours and fonts: a deeper panel that stays readable on bright ground, glass buttons, a visible amount field that highlights while you type.
+- Section titles, the selected plant's name and the totals stand out. The figure the current mode answers is larger.
+- Margins line up on both sides, and the small fuel icons are centred under each plant.
+
+## 1.1.0
+
+- Redesigned look: dark buttons with a warm accent, restyled switches, grouped results.
+
 ## 1.0.3
 
 - The planet filters now follow you to a new planet while the window stays open.
