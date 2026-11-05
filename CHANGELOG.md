@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.3
+
+- The close button sits in a box of its own size: the window no longer shows an empty slot left of the X.
+
+## 1.2.2
+
+- With GenesisBook, items the game hides are no longer offered: Mk.I and Mk.II proliferators are gone from the proliferator choice and from the thermal plant's fuels, and so is the crystal explosive unit.
+
 ## 1.2.1
 
 - Fixed values and headings glowing in the new look.

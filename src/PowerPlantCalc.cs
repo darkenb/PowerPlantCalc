@@ -12,7 +12,7 @@ namespace PowerPlantCalc
 {
     public enum Language { English, Chinese, Turkish }
 
-    [BepInPlugin("bug.dsp.powerplantcalc", "PowerPlantCalc", "1.2.1")]
+    [BepInPlugin("bug.dsp.powerplantcalc", "PowerPlantCalc", "1.2.3")]
     public class Plugin : BaseUnityPlugin
     {
         private static ConfigEntry<KeyboardShortcut> hotkey;
@@ -202,6 +202,7 @@ namespace PowerPlantCalc
         private static readonly List<Text> resultValues = new List<Text>(), genNames = new List<Text>();
         private static readonly List<(ItemProto item, Image ring)> genRings = new List<(ItemProto, Image)>(), fuelRings = new List<(ItemProto, Image)>();
         private static readonly List<Image> incRings = new List<Image>();
+        private static readonly List<int> incLevels = new List<int>();  // level of each shown proliferator ring
         private static readonly List<UIButton> modeButtons = new List<UIButton>(), unitButtons = new List<UIButton>();
         private static ItemProto gen, fuel;
         private static int incIndex, unitIndex = 3; // GW
@@ -231,7 +232,7 @@ namespace PowerPlantCalc
         private static IEnumerable<ItemProto> Generators() => LDB.items.dataArray.Where(i => i?.prefabDesc != null && i.prefabDesc.isPowerGen && i.prefabDesc.fuelMask > 0 && i.prefabDesc.useFuelPerTick > 0 && i.prefabDesc.fuelMask < ItemProto.fuelNeeds.Length && i.GridIndex > 0);
 
         private static ItemProto[] Fuels(ItemProto g) => (Planet.AcceptedFuels(onlyFocus || onlyPlanet ? planet : null, g.prefabDesc.fuelMask) ?? new int[0])
-            .Where(id => producible == null || producible.Contains(id)).Select(id => LDB.items.Select(id)).Where(i => i != null && !IsLoreItem(i)).ToArray();
+            .Where(id => producible == null || producible.Contains(id)).Select(id => LDB.items.Select(id)).Where(i => i != null && i.GridIndex > 0 && !IsLoreItem(i)).ToArray();  // GridIndex 0: hidden by a mod (GenesisBook's Mk.I/II proliferators, crystal explosive unit)
 
         // GenesisBook's three books and developer logs burn in any plant but are collectibles, not fuel (matched by proto key, not translated name).
         private static bool IsLoreItem(ItemProto i) => i.Name == "创世之书" || i.Name == "虚空之书" || i.Name == "起源之书" || (i.Name?.StartsWith("开发者日志") ?? false);
@@ -252,7 +253,12 @@ namespace PowerPlantCalc
             win.name = "Power Plant Calculator";
             UnityEngine.Object.DestroyImmediate(win.GetComponent<UIPowerGeneratorWindow>());
             foreach (Transform c in win.transform) if (c.name != "panel-bg") UnityEngine.Object.Destroy(c.gameObject);
-            UnityEngine.Object.Destroy(win.transform.Find("panel-bg/btn-box/menu-wnd-btn").gameObject);
+            // One close button left: the box was sized for two (64 wide), so shrink it to the close button and keep its right edge.
+            var box = (RectTransform)win.transform.Find("panel-bg/btn-box");
+            UnityEngine.Object.DestroyImmediate(box.Find("menu-wnd-btn").gameObject);
+            box.sizeDelta = new Vector2(32f, box.sizeDelta.y);
+            box.anchoredPosition += new Vector2(16f, 0f);
+            ((RectTransform)box.Find("close-wnd-btn")).anchoredPosition = Vector2.zero;
             StripLocalizers(win);
             Backdrop(win.transform.Find("panel-bg"));
             var close = win.transform.Find("panel-bg/btn-box/close-wnd-btn").GetComponent<Button>();
@@ -285,10 +291,13 @@ namespace PowerPlantCalc
             int[] incItems = { 0, 1141, 1142, 1143 };
             for (int i = 0; i < incItems.Length; i++)
             {
-                int index = i;
-                var ring = Circle(modeRow, new Vector2(430f + i * 44f, -3f), 38f, LDB.items.Select(incItems[i]), () => { incIndex = index; Refresh(); });
+                var item = LDB.items.Select(incItems[i]);
+                if (i > 0 && (item == null || item.GridIndex <= 0)) continue;  // GenesisBook hides Mk.I and Mk.II
+                int index = incRings.Count;
+                var ring = Circle(modeRow, new Vector2(430f + index * 44f, -3f), 38f, item, () => { incIndex = index; Refresh(); });
                 if (i == 0) ring.transform.parent.Find("button").GetComponent<UIButton>().tips.tipTitle = Lang.T("noProliferator");
                 incRings.Add(ring);
+                incLevels.Add(Calc.IncLevels[i]);
             }
 
             inputRow = NewRect("input-row", fuelSection, Vector2.zero, new Vector2(Width, 30f));
@@ -495,7 +504,7 @@ namespace PowerPlantCalc
             double amount = amounts[powerMode ? 1 : 0];
             if (fuel == null || amount <= 0) { Clear(); return; }
             var pd = gen.prefabDesc;
-            Result Run(double rate) => Calc.Run(pd.genEnergyPerTick, pd.useFuelPerTick, pd.fuelMask, fuel.ID, fuel.HeatValue, fuel.Productive, Calc.IncLevels[incIndex], rate, focus);
+            Result Run(double rate) => Calc.Run(pd.genEnergyPerTick, pd.useFuelPerTick, pd.fuelMask, fuel.ID, fuel.HeatValue, fuel.Productive, incLevels[incIndex], rate, focus);
             double fuelRate = powerMode ? Calc.RateForPower(Run(1), amount * Math.Pow(1000, unitIndex)) : amount;
             var r = Run(fuelRate);
             if (r.PerMachine <= 0) { Clear(); return; }
