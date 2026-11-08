@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.4
+
+- Close button hover no longer sticks out of its frame: the box is 48 wide so the frame's slanted end stays clear of the button.
+
 ## 1.2.3
 
 - The close button sits in a box of its own size: the window no longer shows an empty slot left of the X.
