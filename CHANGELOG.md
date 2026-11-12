@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.5
+
+- The window closes when the Esc menu opens.
+
 ## 1.2.4
 
 - Close button hover no longer sticks out of its frame: the box is 48 wide so the frame's slanted end stays clear of the button.

@@ -12,7 +12,7 @@ namespace PowerPlantCalc
 {
     public enum Language { English, Chinese, Turkish }
 
-    [BepInPlugin("bug.dsp.powerplantcalc", "PowerPlantCalc", "1.2.4")]
+    [BepInPlugin("bug.dsp.powerplantcalc", "PowerPlantCalc", "1.2.5")]
     public class Plugin : BaseUnityPlugin
     {
         private static ConfigEntry<KeyboardShortcut> hotkey;
@@ -27,6 +27,8 @@ namespace PowerPlantCalc
         private void Update()
         {
             if (DSPGame.IsMenuDemo || !GameMain.isRunning || UIRoot.instance?.uiGame?.generatorWindow == null) return;
+            // Paused means the Esc menu; the game UI is closed while loading.
+            if (GameMain.isPaused || !UIRoot.instance.uiGame.active) { CalcWindow.Hide(); return; }
             if (!VFInput.inputing && hotkey.Value.IsDown()) CalcWindow.Toggle();
             CalcWindow.FollowPlanet();
         }
@@ -220,6 +222,11 @@ namespace PowerPlantCalc
             if (!win.activeSelf) return;
             win.transform.SetAsLastSibling();
             RebuildCards(); // the player may have moved to another planet
+        }
+
+        public static void Hide()
+        {
+            if (win != null) win.SetActive(false);
         }
 
         // The filters describe the current planet, and the window can stay open while the player travels.
